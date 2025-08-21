@@ -1,0 +1,13 @@
+{
+  "name": "com.nahiyansamit.moving-platform-system.Editor",
+  "references": [ "com.nahiyansamit.moving-platform-system.Runtime" ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
