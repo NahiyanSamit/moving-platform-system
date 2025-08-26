@@ -11,8 +11,8 @@ namespace NahiyanSamit.MovingPlatformSystem
         Loop,
         PingPong
     }
-    
-    
+
+    [RequireComponent(typeof(Rigidbody))]
     public class MovingPlatform : MonoBehaviour
     {
         [Header("Platform Settings")]
