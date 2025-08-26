@@ -58,6 +58,22 @@ namespace NahiyanSamit.MovingPlatformSystem
             _cts?.Cancel();
             _cts?.Dispose();
         }
+        
+        public void StartMoving()
+        {
+            if (!_isMoving)
+            {
+                _isMoving = true;
+                _cts = new CancellationTokenSource();
+                MoveToNextWaypointAsync(_cts.Token).Forget();
+            }
+        }
+
+        public void StopMoving()
+        {
+            _isMoving = false;
+            _cts.Cancel();
+        }
 
         private async UniTask MoveToNextWaypointAsync(CancellationToken token)
         {
@@ -77,7 +93,7 @@ namespace NahiyanSamit.MovingPlatformSystem
                     _rb.MovePosition(transform.position + direction * moveSpeed * Time.fixedDeltaTime);
                     await UniTask.WaitForFixedUpdate(token);
                 }
-                
+
                 await UniTask.Delay((int)(waitTimeAtWaypoint * 1000), cancellationToken: token);
 
                 // Update waypoint index based on loop type
