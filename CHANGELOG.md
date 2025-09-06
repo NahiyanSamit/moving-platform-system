@@ -2,3 +2,6 @@
 
 ## [0.1.1] - 2025-08-21
 - Initial UPM package scaffold
+
+## [0.2.0] - 2025-08-22
+- Added RotatingPlatform script for rotational movement between waypoints.

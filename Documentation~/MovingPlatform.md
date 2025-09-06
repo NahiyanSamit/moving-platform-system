@@ -1,7 +1,7 @@
 # MovingPlatform Script Documentation
 
 ## Overview
-The `MovingPlatform` script provides a flexible and robust system for creating moving platforms in Unity. It supports multiple waypoints, customizable movement speed, wait times, and looping behaviors. The platform can be started and stopped at runtime, making it suitable for dynamic gameplay scenarios.
+The `MovingPlatform` and `RotatingPlatform` script provides a flexible and robust system for creating moving platforms in Unity. It supports multiple waypoints, customizable movement speed, wait times, and looping behaviors. The platform can be started and stopped at runtime, making it suitable for dynamic gameplay scenarios.
 
 ---
 
@@ -36,11 +36,15 @@ The `MovingPlatform` script provides a flexible and robust system for creating m
   - Starts the platform's movement if it is not already moving.
 - **StopMoving()**
   - Stops the platform's movement immediately.
+- **StartRotating()//StartMoving()**
+  - Starts the platform's rotation if it is not already rotating.
+- **StopRotating()//StartMoving()**
+  - Stops the platform's rotation immediately.
 
 ---
 
 ## Usage Example
-1. Attach the `MovingPlatform` script to a GameObject with a Rigidbody.
+1. Attach the `MovingPlatform` or `RotatingPlatform` script to a GameObject with a Rigidbody.
 2. Configure the waypoints, speed, wait time, and loop type in the Inspector.
 3. To control the platform from another script:
 
@@ -57,6 +61,23 @@ public class PlatformController : MonoBehaviour
     public void DeactivatePlatform()
     {
         platform.StopMoving();
+    }
+}
+```
+
+```csharp
+public class PlatformController : MonoBehaviour
+{
+    public RotatingPlatform platform;
+
+    public void ActivatePlatform()
+    {
+        platform.StartMoving(); // Or platform.StartRotating();
+    }
+
+    public void DeactivatePlatform()
+    {
+        platform.StopMoving(); // Or platform.StopRotating(); 
     }
 }
 ```
