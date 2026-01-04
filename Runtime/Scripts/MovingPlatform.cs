@@ -22,30 +22,25 @@ namespace NahiyanSamit.MovingPlatformSystem
         [SerializeField] private LoopType loopType; 
         [SerializeField] private bool moveOnStart;
 
-        [Header("Collision Settings")]
-        [Tooltip("Layers that should move with the platform")]
-        [SerializeField] private LayerMask passengerMask = -1; // Default to Everything
-
         private List<Vector3> _absoluteWaypoints;
         private int _currentWaypointIndex;
         private int _direction = 1;
         private bool _isMoving;
+        
+        private Vector3 _lastPosition;
+        private HashSet<Transform> _objectsOnPlatform = new HashSet<Transform>();
 
         private Rigidbody _rb;
         private CancellationTokenSource _cts;
-
-        // TRACKING PASSENGERS
-        private HashSet<Transform> _passengers = new HashSet<Transform>();
-        private Dictionary<Transform, CharacterController> _passengerControllers = new Dictionary<Transform, CharacterController>();
-        private Dictionary<Transform, Rigidbody> _passengerRigidbodies = new Dictionary<Transform, Rigidbody>();
 
         private void Awake()
         {
             _rb = GetComponent<Rigidbody>();
             _rb.isKinematic = true; 
             _rb.useGravity = false;
-            _rb.interpolation = RigidbodyInterpolation.Interpolate; 
+            _rb.interpolation = RigidbodyInterpolation.None; 
 
+            _lastPosition = transform.position;
             _absoluteWaypoints = new List<Vector3> { transform.position };
             _cts = new CancellationTokenSource();
         }
@@ -100,38 +95,57 @@ namespace NahiyanSamit.MovingPlatformSystem
                     continue;
                 }
 
-                Vector3 targetPosition = _absoluteWaypoints[_currentWaypointIndex];
-
-                // Movement Loop
-                while (Vector3.Distance(transform.position, targetPosition) > 0.01f && !token.IsCancellationRequested)
-                {
-                    // Calculate the step for this frame
-                    Vector3 currentPos = transform.position;
-                    Vector3 newPos = Vector3.MoveTowards(currentPos, targetPosition, moveSpeed * Time.fixedDeltaTime);
-                    Vector3 moveDelta = newPos - currentPos;
-
-                    // 1. Move the Platform
-                    _rb.MovePosition(newPos);
-
-                    // 2. Move Passengers by the same amount
-                    MovePassengers(moveDelta);
-
-                    await UniTask.WaitForFixedUpdate(token);
-                }
-
-                // Snap to exact target to prevent drift
-                Vector3 finalSnapDelta = targetPosition - transform.position;
-                _rb.MovePosition(targetPosition);
-                MovePassengers(finalSnapDelta);
-
+                await MoveToWaypointAsync(_absoluteWaypoints[_currentWaypointIndex], token);
                 await UniTask.Delay((int)(waitTimeAtWaypoint * 1000), cancellationToken: token);
-
                 UpdateWaypointIndex();
-                
-                // Yield to ensure loop doesn't hang if delay is 0
-                await UniTask.Yield(token);
             }
         }
+
+        private async UniTask MoveToWaypointAsync(Vector3 targetPosition, CancellationToken token)
+        {
+            const float arrivalThreshold = 0.0001f; // sqrMagnitude threshold for 0.01f distance
+    
+            while ((transform.position - targetPosition).sqrMagnitude > arrivalThreshold && !token.IsCancellationRequested)
+            {
+                Vector3 newPos = Vector3.MoveTowards(transform.position, targetPosition, moveSpeed * Time.fixedDeltaTime);
+                Vector3 delta = newPos - _lastPosition;
+        
+                _rb.transform.position = newPos;
+                MoveObjectsOnPlatform(delta);
+        
+                _lastPosition = newPos;
+                await UniTask.WaitForFixedUpdate(token);
+            }
+        }
+
+        private void MoveObjectsOnPlatform(Vector3 delta)
+        {
+            if (_objectsOnPlatform.Count == 0) return;
+    
+            foreach (var obj in _objectsOnPlatform)
+            {
+                if (obj != null)
+                    obj.position += delta;
+            }
+        }
+
+        private void OnCollisionStay(Collision collision)
+        {
+            foreach (var contact in collision.contacts)
+            {
+                if (Vector3.Dot(contact.normal, Vector3.up) < 0.5f)
+                {
+                    _objectsOnPlatform.Add(collision.transform);
+                    return;
+                }
+            }
+        }
+
+        private void OnCollisionExit(Collision collision)
+        {
+            _objectsOnPlatform.Remove(collision.transform);
+        }
+
 
         private void UpdateWaypointIndex()
         {
@@ -159,84 +173,6 @@ namespace NahiyanSamit.MovingPlatformSystem
                         _currentWaypointIndex = Mathf.Clamp(_currentWaypointIndex, 0, _absoluteWaypoints.Count - 1);
                     }
                     break;
-            }
-        }
-
-        // --- PASSENGER SYSTEM ---
-
-        private void MovePassengers(Vector3 delta)
-        {
-            // Clean up list just in case objects were destroyed
-            _passengers.RemoveWhere(t => t == null);
-
-            foreach (Transform passenger in _passengers)
-            {
-                // Option A: If it has a CharacterController (Standard Unity Player)
-                if (_passengerControllers.TryGetValue(passenger, out CharacterController cc))
-                {
-                    // enable movement and move (use minimal step offset to force update)
-                    cc.Move(delta);
-                }
-                // Option B: If it has a Rigidbody (Physics Object)
-                else if (_passengerRigidbodies.TryGetValue(passenger, out Rigidbody rb))
-                {
-                    rb.MovePosition(rb.position + delta);
-                }
-                // Option C: Basic Transform (Simple objects)
-                else
-                {
-                    passenger.position += delta;
-                }
-            }
-        }
-
-        private void OnCollisionEnter(Collision collision)
-        {
-            HandlePassengerEnter(collision.transform);
-        }
-
-        private void OnCollisionExit(Collision collision)
-        {
-            HandlePassengerExit(collision.transform);
-        }
-
-        // Optional: Support Trigger based characters if needed
-        private void OnTriggerEnter(Collider other)
-        {
-             // Only add if not using Rigidbody (to avoid double adding)
-             if(other.attachedRigidbody == null) HandlePassengerEnter(other.transform);
-        }
-        
-        private void OnTriggerExit(Collider other)
-        {
-             if(other.attachedRigidbody == null) HandlePassengerExit(other.transform);
-        }
-
-        private void HandlePassengerEnter(Transform t)
-        {
-            // Check layer mask
-            if (((1 << t.gameObject.layer) & passengerMask) == 0) return;
-
-            // Avoid adding the platform itself or parents
-            if (t == transform || t.IsChildOf(transform)) return;
-
-            if (_passengers.Add(t))
-            {
-                // Cache components for performance
-                var cc = t.GetComponent<CharacterController>();
-                if (cc != null) _passengerControllers[t] = cc;
-
-                var rb = t.GetComponent<Rigidbody>();
-                if (rb != null) _passengerRigidbodies[t] = rb;
-            }
-        }
-
-        private void HandlePassengerExit(Transform t)
-        {
-            if (_passengers.Remove(t))
-            {
-                _passengerControllers.Remove(t);
-                _passengerRigidbodies.Remove(t);
             }
         }
     }

@@ -8,3 +8,7 @@
 
 ## [0.2.1] - 2025-08-22
 - Add passenger detection to MovingPlatform script.
+
+## [0.2.2] - 2025-08-22
+- Fixed top object movement on MovingPlatform.
+- fixed sliding issue on MovingPlatform.
